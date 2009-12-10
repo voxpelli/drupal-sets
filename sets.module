@@ -1,0 +1,100 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Core functionality for the Set module.
+ */
+
+function sets_iterate_string($string, $callback, $values = array(), $offset = 0) {
+  $matches = array();
+  $sets = sets_list_sets();
+
+  $start_pos = strpos($string, '[', $offset);
+  $end_pos   = strpos($string, ']', $start_pos);
+
+  if ($start_pos !== FALSE && $end_pos !== FALSE) {
+    $tag = substr($string, $start_pos + 1, $end_pos - $start_pos - 1);
+    if (!isset($sets[$tag])) {
+      return sets_iterate_string($string, $callback, $values, $end_pos + 1);
+    }
+    else {
+      $provider = sets_get_set_provider($sets[$tag]);
+      $set = call_user_func($provider['set load'], $tag);
+      foreach ($set as $value) {
+        $values[] = array(
+          'tag'   => $tag,
+          'value' => $value,
+        );
+        $new_string = substr($string, 0, $start_pos) . $value . substr($string, $end_pos + 1);
+        $result = sets_iterate_string($new_string, $callback, $values, $offset);
+        if (!$result) {
+          return FALSE;
+        }
+      }
+      return TRUE;
+    }
+  }
+  else {
+    //Call callback
+    call_user_func($callback, $string, $values);
+    return TRUE;
+  }
+}
+
+function sets_get_set_provider($set) {
+  ctools_include('plugins');
+  return ctools_get_plugins('sets', 'set_provider', $set);
+}
+
+function sets_get_set_providers() {
+  ctools_include('plugins');
+  return ctools_get_plugins('sets', 'set_provider');
+}
+
+function sets_list_sets() {
+  static $sets;
+
+  if (!isset($sets)) {
+    $sets = array();
+
+    $providers = sets_get_set_providers();
+    foreach ($providers as $provider_name => $provider) {
+      $tmp = call_user_func($provider['sets list'], $context);
+      foreach ($tmp as $value) {
+        $sets[$value] = $provider_name;
+      }
+    }
+  }
+
+  return $sets;
+}
+
+/**
+ * Implementation of hook_ctools_plugin_TYPE().
+ */
+function sets_ctools_plugin_set_provider() {
+  return array(
+    'hook' => 'set_provider',
+    //'cache' => TRUE,
+  );
+}
+
+/*************
+ * TEST STUFF
+ *************/
+
+function sets_ctools_plugin_directory($module, $plugin) {
+  if ($module == 'sets' && $plugin == 'set_provider') {
+    return 'plugins';
+  }
+}
+
+sets_iterate_string('Kalle [test] [stoj] och [test2] samt [kalle]', 'test');
+
+function test($string, $values) {
+  print '<pre>';
+  var_dump($string);
+  var_dump($values);
+  print '</pre>';
+}

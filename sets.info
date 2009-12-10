@@ -1,0 +1,6 @@
+; $Id$
+name = Sets
+description = Module for eg. iterating through sets
+core = 6.x
+php = 5.2
+dependencies[] = ctools
