@@ -18,6 +18,7 @@ function sets_taxonomy_sets_list() {
     $name = 'taxonomy-' . sets_clean_tag($vocabulary->name);
     $result[$name] = array(
       'vid' => $vocabulary->vid,
+      'description' => t('Set of taxonomy terms in the vocabulary @vocabulary', array('@vocabulary' => $vocabulary->name)),
     );
   }
   return $result;
