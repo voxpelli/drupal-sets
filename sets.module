@@ -6,6 +6,18 @@
  * Core functionality for the Set module.
  */
 
+/**
+ * Iterates over all Set tags in a string recursively and calls the callback for each variant.
+ *
+ * @param $string
+ *   The string to iterate over all Set tags in
+ * @param $callback
+ *   A function to be called for each variant of $string
+ * @param $values
+ *   An array containing all values of previously replaced tags - used when the original string contains more than one Set tag.
+ * @param $offset
+ *   Where to start search for Set tags in a string - used when the original string contains more than one Set tag and useful when one of them doesn't exist.
+ */
 function sets_iterate_string($string, $callback, $values = array(), $offset = 0) {
   $matches = array();
   $sets = sets_list_sets();
@@ -16,42 +28,57 @@ function sets_iterate_string($string, $callback, $values = array(), $offset = 0)
   if ($start_pos !== FALSE && $end_pos !== FALSE) {
     $tag = substr($string, $start_pos + 1, $end_pos - $start_pos - 1);
     if (!isset($sets[$tag])) {
-      return sets_iterate_string($string, $callback, $values, $end_pos + 1);
+      sets_iterate_string($string, $callback, $values, $end_pos + 1);
     }
     else {
-      $provider = sets_get_set_provider($sets[$tag]);
-      $set = call_user_func($provider['set load'], $tag);
+      $provider = sets_get_set_provider($sets[$tag]['provider']);
+      $set = call_user_func($provider['set load'], $sets[$tag]);
       foreach ($set as $value) {
         $values[] = array(
-          'tag'   => $tag,
+          'tag'   => $sets[$tag],
           'value' => $value,
         );
         $new_string = substr($string, 0, $start_pos) . $value . substr($string, $end_pos + 1);
-        $result = sets_iterate_string($new_string, $callback, $values, $offset);
-        if (!$result) {
-          return FALSE;
-        }
+        sets_iterate_string($new_string, $callback, $values, $offset);
       }
-      return TRUE;
     }
   }
   else {
     //Call callback
     call_user_func($callback, $string, $values);
-    return TRUE;
   }
 }
 
+/**
+ * Gets the definition of a single provider.
+ *
+ * @param $set
+ *   The name of a provider as a string
+ * @return
+ *   Array with the provider definition
+ */
 function sets_get_set_provider($set) {
   ctools_include('plugins');
   return ctools_get_plugins('sets', 'set_provider', $set);
 }
 
+/**
+ * Gets the definitions of all providers.
+ *
+ * @return
+ *   Array of provider definitions as arrays.
+ */
 function sets_get_set_providers() {
   ctools_include('plugins');
   return ctools_get_plugins('sets', 'set_provider');
 }
 
+/**
+ * Lists the available sets.
+ *
+ * @return
+ *   Array with the tag as key and an array with properties as the value.
+ */
 function sets_list_sets() {
   static $sets;
 
@@ -61,8 +88,19 @@ function sets_list_sets() {
     $providers = sets_get_set_providers();
     foreach ($providers as $provider_name => $provider) {
       $tmp = call_user_func($provider['sets list'], $context);
-      foreach ($tmp as $value) {
-        $sets[$value] = $provider_name;
+      foreach ($tmp as $key => $value) {
+        if (is_array($value)) {
+          $sets[$key] = $value + array(
+            'tag'      => $key,
+            'provider' => $provider_name,
+          );
+        }
+        else {
+          $sets[$value] = array(
+            'tag'      => $value,
+            'provider' => $provider_name,
+          );
+        }
       }
     }
   }
@@ -71,30 +109,18 @@ function sets_list_sets() {
 }
 
 /**
+ * Function to clean a tag to only use a-z, 0-9 as well as - and _.
+ */
+function sets_clean_tag($tag) {
+  return preg_replace('/\W/', '-', strtolower($tag));
+}
+
+/**
  * Implementation of hook_ctools_plugin_TYPE().
  */
 function sets_ctools_plugin_set_provider() {
+  //TODO: Make it possible to add cache here
   return array(
     'hook' => 'set_provider',
-    //'cache' => TRUE,
   );
-}
-
-/*************
- * TEST STUFF
- *************/
-
-function sets_ctools_plugin_directory($module, $plugin) {
-  if ($module == 'sets' && $plugin == 'set_provider') {
-    return 'plugins';
-  }
-}
-
-sets_iterate_string('Kalle [test] [stoj] och [test2] samt [kalle]', 'test');
-
-function test($string, $values) {
-  print '<pre>';
-  var_dump($string);
-  var_dump($values);
-  print '</pre>';
 }
