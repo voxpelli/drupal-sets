@@ -22,7 +22,8 @@ function sets_theme() {
 /**
  * Builds a formatted list of sets and descriptions.
  *
- * @return An HTML table containing the formatting docs.
+ * @return
+ *   An HTML table containing the formatting docs.
  */
 function theme_sets_help() {
   $sets = sets_list_sets();
@@ -40,10 +41,28 @@ function theme_sets_help() {
   return $output;
 }
 
+/**
+ * Return all Set-tags in a string
+ *
+ * @param $string
+ *   The string to search for Set tags in
+ * @return
+ *   Array of tag names.
+ */
 function sets_string_get_tags($string) {
    return _sets_string_get_tags($string);
 }
 
+/**
+ * Recursive internal function - return all Set-tags in a string
+ *
+ * @param $string
+ *   The string to search for Set tags in
+ * @param $offset
+ *   The position to start search for tags in.
+ * @return
+ *   Array of tag names.
+ */
 function _sets_string_get_tags($string, $offset = 0) {
   $results = array();
 
@@ -63,6 +82,14 @@ function _sets_string_get_tags($string, $offset = 0) {
   return $results;
 }
 
+/**
+ * Returns all possible combinations of set values in string
+ *
+ * @param $string
+ *   The string to insert set values in.
+ * @return
+ *   Array of all possible combinations of values as well as the actual values inserted.
+ */
 function sets_string_get($string) {
   return _sets_string_get($string);
 }
@@ -115,6 +142,27 @@ function _sets_string_get($string, $values = array(), $offset = 0) {
   return $results;
 }
 
+/**
+ * Recursively iterates over a subset of all Set tags in a string and calls the callback for each variant.
+ *
+ * @param $string
+ *   The string to iterate over all Set tags in
+ * @param $callback
+ *   A function to be called for each variant of $string
+ * @param $count
+ *   The maximum number of iterations to be performed
+ * @param $set_offset
+ *   An array by reference with the key being the position of a set in the string and the value
+ *   the offset to start iterate that set in
+ * @param
+ *   Any number of additional arguments to be sent to the callback
+ * @return
+ *   An associative array of additional options, with the following keys:
+ *     - 'count'
+ *       How many iterations that was done.
+ *     - 'results'
+ *       Any results that might have been returned by the callbacks.
+ */
 function sets_string_iterate_subset($string, $callback, $count, &$set_offset = array()) {
   $args = func_get_args();
   unset($args[0], $args[1], $args[2], $args[3]);
@@ -122,7 +170,7 @@ function sets_string_iterate_subset($string, $callback, $count, &$set_offset = a
 }
 
 /**
- * Iterates over all Set tags in a string recursively and calls the callback for each variant.
+ * Recursively iterates over all Set tags in a string and calls the callback for each variant.
  *
  * @param $string
  *   The string to iterate over all Set tags in
@@ -130,6 +178,12 @@ function sets_string_iterate_subset($string, $callback, $count, &$set_offset = a
  *   A function to be called for each variant of $string
  * @param
  *   Any number of additional arguments to be sent to the callback
+ * @return
+ *   An associative array of additional options, with the following keys:
+ *     - 'count'
+ *       How many iterations that was done.
+ *     - 'results'
+ *       Any results that might have been returned by the callbacks.
  */
 function sets_string_iterate($string, $callback) {
   $args = func_get_args();
@@ -138,7 +192,7 @@ function sets_string_iterate($string, $callback) {
 }
 
 /**
- * Iterates over all Set tags in a string recursively and calls the callback for each variant.
+ * Internal function - iterates over all Set tags in a string recursively and calls the callback for each variant.
  *
  * @param $string
  *   The string to iterate over all Set tags in
@@ -158,6 +212,12 @@ function sets_string_iterate($string, $callback) {
  *   Additional argumenst to be sent to the callback
  * @param $set_offset
  *   The offset for each individual set.
+ * @return
+ *   An associative array of additional options, with the following keys:
+ *     - 'count'
+ *       How many iterations that was done.
+ *     - 'results'
+ *       Any results that might have been returned by the callbacks.
  */
 function _sets_string_iterate($string, $callback, $options = array(), $args = array(), &$set_offset = array()) {
   if (isset($options['pos'])) {
@@ -263,15 +323,35 @@ function sets_get_set_providers() {
   return ctools_get_plugins('sets', 'set_provider');
 }
 
+/**
+ * Gets all the values of a set
+ *
+ * @param $tag
+ *   The name of the set
+ * @return
+ *   An array containing all of the values of the set
+ */
 function sets_get_set($tag) {
-  $sets = sets_list_sets();
+  $sets     = sets_list_sets();
   $provider = sets_get_set_provider($sets[$tag]['provider']);
   return call_user_func($provider['set load'], $sets[$tag]);
 }
 
+/**
+ * Gets a subset of all the values of a set
+ *
+ * @param $tag
+ *   The name of the set
+ * @param $count
+ *   The maximum amount of values to return
+ * @param $offset
+ *   The position of the first value to return
+ * @return
+ *   An array containing all of the values of the set
+ */
 function sets_get_subset($tag, $count, $offset = 0) {
-  $set = array();
-  $sets = sets_list_sets();
+  $set      = array();
+  $sets     = sets_list_sets();
   $provider = sets_get_set_provider($sets[$tag]['provider']);
 
   if (isset($provider['subset load'])) {
@@ -331,6 +411,11 @@ function sets_list_sets() {
 
 /**
  * Function to clean a tag to only use a-z, 0-9 as well as - and _.
+ *
+ * @param $tag
+ *   The string to clean
+ * @return
+ *   The cleaned string
  */
 function sets_clean_tag($tag) {
   return preg_replace('/\W/', '-', strtolower($tag));
