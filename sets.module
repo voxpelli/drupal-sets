@@ -72,11 +72,11 @@ function _sets_string_get_tags($string, $offset = 0) {
   $end_pos   = strpos($string, ']', $start_pos);
 
   if ($start_pos !== FALSE && $end_pos !== FALSE) {
-    $results += _sets_string_get_tags($string, $end_pos + 1);
     $tag = substr($string, $start_pos + 1, $end_pos - $start_pos - 1);
     if (isset($sets[$tag])) {
       $results[] = $tag;
     }
+    $results = array_merge($results, _sets_string_get_tags($string, $end_pos + 1));
   }
 
   return $results;
@@ -110,7 +110,7 @@ function _sets_string_get($string, $values = array(), $offset = 0) {
         $results = FALSE;
       }
       else {
-        $results += $result;
+        $results = array_merge($results, $result);
       }
     }
     else {
@@ -130,7 +130,7 @@ function _sets_string_get($string, $values = array(), $offset = 0) {
           );
         }
         else {
-          $results += $result;
+          $results = array_merge($results, $result);
         }
       }
     }
@@ -243,9 +243,9 @@ function _sets_string_iterate($string, $callback, $options = array(), $args = ar
     $tag = substr($string, $start_pos + 1, $end_pos - $start_pos - 1);
     if (!isset($sets[$tag])) {
       $options['string_offset'] = $end_pos + 1;
-      $result   = _sets_string_iterate($string, $callback, $options, $args, $set_offset);
-      $answers += $result['results'];
-      $count   += $result['count'];
+      $result  = _sets_string_iterate($string, $callback, $options, $args, $set_offset);
+      $answers = array_merge($answers, $result['results']);
+      $count  += $result['count'];
     }
     else {
       if ($options['max_count'] !== FALSE) {
@@ -270,8 +270,8 @@ function _sets_string_iterate($string, $callback, $options = array(), $args = ar
         $new_string = substr($string, 0, $start_pos) . $value . substr($string, $end_pos + 1);
         $result = _sets_string_iterate($new_string, $callback, $new_options, $args, $set_offset);
 
-        $answers += $result['results'];
-        $count   += $result['count'];
+        $answers = array_merge($answers, $result['results']);
+        $count  += $result['count'];
 
         if ($options['max_count'] !== FALSE && $options['max_count'] <= $options['current_count'] + $count) {
           break;
