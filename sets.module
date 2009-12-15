@@ -87,8 +87,7 @@ function _sets_string_get($string, $values = array(), $offset = 0) {
       }
     }
     else {
-      $provider = sets_get_set_provider($sets[$tag]['provider']);
-      $set = call_user_func($provider['set load'], $sets[$tag]);
+      $set = sets_get_set($tag);
       foreach ($set as $value) {
         $new_values = $values;
         $new_values[] = array(
@@ -116,6 +115,12 @@ function _sets_string_get($string, $values = array(), $offset = 0) {
   return $results;
 }
 
+function sets_string_iterate_subset($string, $callback, $count, &$set_offset = array()) {
+  $args = func_get_args();
+  unset($args[0], $args[1], $args[2], $args[3]);
+  return _sets_string_iterate($string, $callback, array('max_count' => $count), $args, $set_offset);
+}
+
 /**
  * Iterates over all Set tags in a string recursively and calls the callback for each variant.
  *
@@ -129,7 +134,7 @@ function _sets_string_get($string, $values = array(), $offset = 0) {
 function sets_string_iterate($string, $callback) {
   $args = func_get_args();
   unset($args[0], $args[1]);
-  _sets_string_iterate($string, $callback, $args);
+  return _sets_string_iterate($string, $callback, array(), $args);
 }
 
 /**
@@ -139,15 +144,36 @@ function sets_string_iterate($string, $callback) {
  *   The string to iterate over all Set tags in
  * @param $callback
  *   A function to be called for each variant of $string
+ * @param $options
+ *   An associative array of additional options, with the following keys:
+ *     - 'values'
+ *       An array containing all values of previously replaced tags - used when the original
+ *       string contains more than one Set tag.
+ *     - 'string offset'
+ *       Where to start search for Set tags in a string - used when the original string
+ *       contains more than one Set tag and useful when one of them doesn't exist.
+ *     - 'max_count'
+ *       How many iterations to perform at max.
  * @param $args
  *   Additional argumenst to be sent to the callback
- * @param $values
- *   An array containing all values of previously replaced tags - used when the original string contains more than one Set tag.
- * @param $offset
- *   Where to start search for Set tags in a string - used when the original string contains more than one Set tag and useful when one of them doesn't exist.
+ * @param $set_offset
+ *   The offset for each individual set.
  */
-function _sets_string_iterate($string, $callback, $args, $values = array(), $offset = 0) {
+function _sets_string_iterate($string, $callback, $options = array(), $args = array(), &$set_offset = array()) {
+  if (isset($options['pos'])) {
+    $options['pos'] += 1;
+  }
+
+  $options += array(
+    'values'        => array(),
+    'string_offset' => 0,
+    'max_count'     => FALSE,
+    'pos'           => 0,
+    'current_count' => 0,
+  );
+
   $answers = array();
+  $count   = 0;
   $sets = sets_list_sets();
 
   $start_pos = strpos($string, '[', $offset);
@@ -156,31 +182,61 @@ function _sets_string_iterate($string, $callback, $args, $values = array(), $off
   if ($start_pos !== FALSE && $end_pos !== FALSE) {
     $tag = substr($string, $start_pos + 1, $end_pos - $start_pos - 1);
     if (!isset($sets[$tag])) {
-      $answers += _sets_string_iterate($string, $callback, $args, $values, $end_pos + 1);
+      $options['string_offset'] = $end_pos + 1;
+      $result   = _sets_string_iterate($string, $callback, $options, $args, $set_offset);
+      $answers += $result['results'];
+      $count   += $result['count'];
     }
     else {
-      $provider = sets_get_set_provider($sets[$tag]['provider']);
-      $set = call_user_func($provider['set load'], $sets[$tag]);
+      if ($options['max_count'] !== FALSE) {
+        if (!isset($set_offset[$options['pos']]))  {
+          $set_offset[$options['pos']] = 0;
+        }
+        $set = sets_get_subset($tag, $options['max_count'], $set_offset[$options['pos']]);
+        if ($options['pos'] == 0 && $set_offset[$options['pos']] != 0 && empty($set)) {
+          $set_offset = array();
+        }
+      }
+      else {
+        $set = sets_get_set($tag);
+      }
       foreach ($set as $value) {
-        $new_values = $values;
-        $new_values[] = array(
+        $new_options = $options;
+        $new_options['values'][] = array(
           'tag'   => $sets[$tag],
           'value' => $value,
         );
+        $new_options['current_count'] = $count;
         $new_string = substr($string, 0, $start_pos) . $value . substr($string, $end_pos + 1);
-        $answers += _sets_string_iterate($new_string, $callback, $args, $new_values, $offset);
+        $result = _sets_string_iterate($new_string, $callback, $new_options, $args, $set_offset);
+
+        $answers += $result['results'];
+        $count   += $result['count'];
+
+        if ($options['max_count'] !== FALSE && $options['max_count'] <= $options['current_count'] + $count) {
+          break;
+        }
+        elseif ($max_count !== FALSE) {
+          $set_offset = array_slice($set_offset, 0, $options['pos'] + 1);
+          $set_offset[$options['pos']] += 1;
+        }
       }
     }
   }
   else {
     //Call callback
-    array_unshift($args, $string, $values);
+    array_unshift($args, $string, $options['values']);
     $result = call_user_func_array($callback, $args);
     if ($result !== NULL) {
       $answers[] = $result;
     }
+    $count = 1;
   }
-  return $answers;
+
+  return array(
+    'count'   => $count,
+    'results' => $answers,
+  );
 }
 
 /**
@@ -205,6 +261,37 @@ function sets_get_set_provider($set) {
 function sets_get_set_providers() {
   ctools_include('plugins');
   return ctools_get_plugins('sets', 'set_provider');
+}
+
+function sets_get_set($tag) {
+  $sets = sets_list_sets();
+  $provider = sets_get_set_provider($sets[$tag]['provider']);
+  return call_user_func($provider['set load'], $sets[$tag]);
+}
+
+function sets_get_subset($tag, $count, $offset = 0) {
+  $set = array();
+  $sets = sets_list_sets();
+  $provider = sets_get_set_provider($sets[$tag]['provider']);
+
+  if (isset($provider['subset load'])) {
+    $set = call_user_func($provider['subset load'], $sets[$tag], $count, $offset);
+  }
+  else {
+    $set = call_user_func($provider['set load'], $sets[$tag]);
+    $length = count($set);
+    if ($length <= $offset) {
+      $set = array();
+    }
+    else {
+      if ($count + $offset > $length) {
+        $count = $length - $offset;
+      }
+      $set = array_slice($set, $offset, $count);
+    }
+  }
+
+  return $set;
 }
 
 /**
