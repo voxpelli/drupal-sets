@@ -245,7 +245,7 @@ function _sets_string_iterate($string, $callback, $options = array(), $args = ar
       $options['string_offset'] = $end_pos + 1;
       $result  = _sets_string_iterate($string, $callback, $options, $args, $set_offset);
       $answers = array_merge($answers, $result['results']);
-      $count  += $result['count'];
+      $count   = $result['count'];
     }
     else {
       if ($options['max_count'] !== FALSE) {
@@ -271,7 +271,7 @@ function _sets_string_iterate($string, $callback, $options = array(), $args = ar
         $result = _sets_string_iterate($new_string, $callback, $new_options, $args, $set_offset);
 
         $answers = array_merge($answers, $result['results']);
-        $count  += $result['count'];
+        $count  += $result['count'] === FALSE ? 1 : $result['count'];
 
         if ($options['max_count'] !== FALSE && $options['max_count'] <= $options['current_count'] + $count) {
           break;
@@ -290,7 +290,7 @@ function _sets_string_iterate($string, $callback, $options = array(), $args = ar
     if ($result !== NULL) {
       $answers[] = $result;
     }
-    $count = 1;
+    $count = FALSE;
   }
 
   return array(
