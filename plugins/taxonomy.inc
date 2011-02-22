@@ -17,8 +17,14 @@ function sets_taxonomy_sets_list() {
   foreach ($vocabularies as $vocabulary) {
     $name = 'taxonomy-' . sets_clean_tag($vocabulary->name);
     $result[$name] = array(
+      'tid' => FALSE,
       'vid' => $vocabulary->vid,
       'description' => t('Set of taxonomy terms in the vocabulary @vocabulary', array('@vocabulary' => $vocabulary->name)),
+    );
+    $result[$name . '-tid'] = array(
+      'tid' => TRUE,
+      'vid' => $vocabulary->vid,
+      'description' => t('Set of taxonomy term ids in the vocabulary @vocabulary', array('@vocabulary' => $vocabulary->name)),
     );
   }
   return $result;
@@ -29,7 +35,7 @@ function sets_taxonomy_set_load($set) {
   $tree = taxonomy_get_tree($set['vid']);
 
   foreach ($tree as $term) {
-    $result[] = $term->name;
+    $result[] = $set['tid'] ? $term->tid : $term->name;
   }
 
   return $result;
